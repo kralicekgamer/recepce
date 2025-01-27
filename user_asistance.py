@@ -10,7 +10,7 @@ def uidToString(uid):
         mystring = format(i, '02X') + mystring
     return mystring
 
-def end_read(signal, frame):
+def end_read(_signal, _frame):
     global continue_reading
     print("Ctrl+C captured, ending read.")
     exit()
@@ -24,7 +24,7 @@ while running:
     (status, TagType) = MIFAREReader.MFRC522_Request(MIFAREReader.PICC_REQIDL)
 
     if status == MIFAREReader.MI_OK:
-        print ("Card detected")
+        print("Card detected")
         (status, uid) = MIFAREReader.MFRC522_SelectTagSN()
         if status == MIFAREReader.MI_OK:
             print("Card read UID: %s" % uidToString(uid))
@@ -32,20 +32,18 @@ while running:
             conn = sqlite3.connect('attendance.db')
             c = conn.cursor()
             c.execute('''CREATE TABLE IF NOT EXISTS attendance
-                         (uid TEXT PRIMARY KEY, present BOOLEAN)''')
-            c.execute("SELECT present FROM attendance WHERE uid=?", (uidToString(uid),))
+                        (uid TEXT PRIMARY KEY, name TEXT, present BOOLEAN)''')
+            c.execute("SELECT name, present FROM attendance WHERE uid=?", (uidToString(uid),))
             row = c.fetchone()
 
             if row:
-                new_status = not row[0]
+                new_status = not row[1]
                 c.execute("UPDATE attendance SET present=? WHERE uid=?", (new_status, uidToString(uid)))
+                print("RFID: %s, Name: %s, Status: %s" % (uidToString(uid), row[0], "Present" if new_status else "Absent"))
             else:
-                c.execute("INSERT INTO attendance (uid, present) VALUES (?, ?)", (uidToString(uid), True))
-
-            if row:
-                print("Presence status updated to: %s" % ("Present" if new_status else "Absent"))
-            else:
-                print("New card added with status: Present")
+                name = input("Enter user name: ")
+                c.execute("INSERT INTO attendance (uid, name, present) VALUES (?, ?, ?)", (uidToString(uid), name, True))
+                print("RFID: %s, Name: %s, Status: Present" % (uidToString(uid), name))
 
             conn.commit()
             conn.close()
